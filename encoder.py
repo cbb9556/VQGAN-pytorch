@@ -10,6 +10,7 @@ class Encoder(nn.Module):
         num_res_blocks = 2
         resolution = 256
         layers = [nn.Conv2d(args.image_channels, channels[0], 3, 1, 1)]
+
         for i in range(len(channels)-1):
             in_channels = channels[i]
             out_channels = channels[i + 1]

@@ -41,9 +41,20 @@ transformer.load_state_dict(torch.load(os.path.join("checkpoints", "transformer_
 print("Loaded state dict of Transformer")
 
 for i in tqdm(range(n)):
+    # 初始化一个大小为(4, 0)的张量，用于存储起始索引，并将其移到CUDA设备上
     start_indices = torch.zeros((4, 0)).long().to("cuda")
+
+    # 创建一个与start_indices中行数相同，列数为1的张量，全部填充为0
+    # 这里使用0代表序列的起始标记（Start Of Sequence，SOS）
+    # 生成4张图片
     sos_tokens = torch.ones(start_indices.shape[0], 1) * 0
+
+    # 将sos_tokens转换为长整型张量，并将其移到CUDA设备上
     sos_tokens = sos_tokens.long().to("cuda")
+
+    # 使用transformer模型从起始索引和SOS标记开始，逐步生成样本序列
+    # 参数steps指定生成序列的最大长度
     sample_indices = transformer.sample(start_indices, sos_tokens, steps=256)
+
     sampled_imgs = transformer.z_to_image(sample_indices)
     vutils.save_image(sampled_imgs, os.path.join("results", "transformer", f"transformer_{i}.jpg"), nrow=4)

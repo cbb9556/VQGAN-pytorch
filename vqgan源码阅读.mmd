@@ -1,0 +1,183 @@
+[Scia Reto](https://sciareto.org) mind map   
+> __version__=`1.1`,showJumps=`true`
+---
+
+# vqgan
+> mmd.emoticon=`tree`
+
+
+## 变种
+
+### VQGAN\-CLIP
+
+#### https://github\.com/nerdyrodent/VQGAN\-CLIP
+
+## 源码
+
+### https://github\.com/dome272/VQGAN\-pytorch
+
+## vqgan神经网络
+
+### self\.vqgan = VQGAN\(args\)\.to\(device=args\.device\)
+
+### 编码器输入图片x
+
+#### 所有layers定义如下：<br/>1：con2d , <br/>2\-3: residualblock， 4： DownSampleBlock，<br/>5\-6：residualblock，7： DownSampleBlock，<br/>8\-9: residualblock， 10： DownSampleBlock，<br/>11\-12：residualblock，13： DownSampleBlock，<br/>14\-15: residualblock， 16：NonLocalBlock，<br/>17\-18: residualblock， 19： DownSampleBlock，<br/>20\-21: residualblock， 22：NonLocalBlock，<br/>23\-24: residualblock, GroupNorm, swish\. conv2d
+> align=`left`
+
+
+#### Conv2d
+
+##### in\-channel =3 
+
+##### out\-channel=125
+
+##### kernel = 3， stride = 1， padding=1
+
+#### residualblock
+
+##### groupNorm
+
+###### num\_groups=32
+
+###### in\_channels = \[128, 128, 128, 256, 256\]
+
+###### out\_channels = \[128, 128, 256, 256, 512
+
+##### swish
+
+##### conv2D
+
+###### in\_channels, out\_channels, 3, 1, 1
+
+##### groupNorm
+
+###### num\_groups=32
+
+###### out\_channels
+
+##### swish
+
+##### con2d
+
+###### out\_channels, out\_channels, 3, 1, 1
+
+#### DownSampleBlock
+
+##### \# 定义一个填充参数，用于后续的Padding操作<br/>\# 第一个和第三个参数表示左侧和上侧的填充量，这里都为0<br/>\# 第二个和第四个参数表示右侧和下侧的填充量，这里都为1<br/>pad = \(0, 1, 0, 1\)<br/><br/>\# 对输入的张量x进行Padding操作，目的是为了保持张量的尺寸或者为卷积操作提供额外的边界信息<br/>\# 这里使用了"constant"模式进行填充，意味着使用常数进行填充<br/>\# 填充的常数值设置为0，这通常用于避免边界效应或者根据卷积操作的需要调整输入尺寸<br/>x = F\.pad\(x, pad, mode="constant", value=0\)<br/><br/>\# 经过预处理后，将填充后的张量x传递给卷积层进行卷积操作<br/>\# 这一步是特征提取的关键，通过卷积操作捕捉输入数据中的重要特征<br/>return self\.conv\(x\)<br/>
+> align=`left`
+
+
+##### Conv2d\(channels, channels, 3, 2, 0\)
+
+##### return self\.conv\(x\)
+
+#### NonLocalBlock
+
+##### GroupNorm\(channels\)
+
+##### qkv 计算 attn分数， 计算注意力A，将 A 加到 x图片上
+
+### pre量化卷积
+
+#### Conv2d\(args\.latent\_dim, args\.latent\_dim, 1\)
+
+### codebook量化器
+
+#### nn\.Embedding\(self\.num\_codebook\_vectors=1024, self\.latent\_dim=256\)
+
+#### s\.g 指的是， 前向传播后，这个值从计算图拿下来，得到当前传播的固定值，不被后续梯度更新影响
+
+#### q\_loss= \(s\.g（zq）\- z\)\*\*2 \+ \(s\.g\(z\) \- zq\)\*\*2
+
+#### zq的参数直接由z复制， zq的梯度直接复制给z，因为zq\-z的部分不计算梯度，梯度停止， z\_q = z \+ \(z\_q \- z\)\.detach\(\)
+
+### post 量化卷积
+
+#### nn\.Conv2d\(args\.latent\_dim, args\.latent\_dim, 1\)
+
+### 解码器
+
+#### layers定义：
+
+##### nn\.Conv2d\(args\.latent\_dim, in\_channels, 3, 1, 1\)
+
+##### ResidualBlock\(in\_channels, in\_channels\)
+
+##### NonLocalBlock\(in\_channels\)
+
+##### ResidualBlock\(in\_channels, in\_channels\)
+
+##### 3\*ResidualBlock\(in\_channels, out\_channels\)
+
+###### NonLocalBlock
+
+####### 4\* \[3\*ResidualBlock\(in\_channels, out\_channels\), UpSampleBlock\]
+
+##### GroupNorm\(in\_channels\)
+
+##### Swish\(\)
+
+##### nn\.Conv2d\(in\_channels, args\.image\_channels, 3, 1, 1\)
+
+#### UpSampleBlock
+
+##### x = F\.interpolate\(x, scale\_factor=2\.0\)
+
+###### Down/up samples the input
+
+###### \# 使用插值方法将输入x的尺寸放大，比例为2\.0倍<br/>\# 这里解释了为什么需要放大尺寸：通常是为了匹配后续处理或网络架构的要求<br/>x = F\.interpolate\(x, scale\_factor=2\.0\)<br/><br/>\# 将放大后的输入x传递给卷积层进行处理<br/>\# 这里解释了为什么需要进行卷积处理：卷积操作可以提取特征，进行数据降维或转换，是深度学习中重要的处理步骤<br/>return self\.conv\(x\)
+> align=`left`
+
+
+##### Conv2d\(channels, channels, 3, 1, 1\)
+
+## patchGAN的判别器
+
+### self\.discriminator = Discriminator\(args\)\.to\(device=args\.device\)
+
+### layer定义
+
+#### nn\.Conv2d\(args\.image\_channels, num\_filters\_last 64, 4, 2, 1\)
+
+#### nn\.LeakyReLU\(0\.2\)
+
+#### １－４层
+
+##### nn\.Conv2d\(num\_filters\_last \* num\_filters\_mult\_last, num\_filters\_last \* num\_filters\_mult, 4,<br/>                          2 if i \< n\_layers else 1, 1, bias=False\)
+
+###### \[64,128\]
+
+####### \[128,256\]
+
+##### nn\.BatchNorm2d\(num\_filters\_last \* num\_filters\_mult\)
+
+###### \[128\]
+
+####### \[256\]
+
+##### nn\.LeakyReLU\(0\.2, True\)
+
+#### nn\.Conv2d\(num\_filters\_last \* num\_filters\_mult, 1, 4, 1, 1\)
+
+##### out\-channel = 1 用于 概率矩阵
+
+## vq\-loss函数
+
+### 重构感知损失 \+ g生成器损失 \+ s\.g\.梯度停止损失
+
+## transformer训练
+
+### 交叉熵loss函数
+
+#### 比较 logit 和  target
+
+##### target为， 图片x，输入到  vqgan的 encode，得到的与codebook距离最小的 index位置
+
+### mask随机替换掩码（增加噪声，使得在有噪声的情况下也能预测） \+  因果掩码（能够根据上文预测下文））
+
+### 因果注意力， logits为 预测下一词的概率分布 和 target 真实概率分布
+
+## 推理采样
+
+### 从 sos\-token开始，依次预测 256个token

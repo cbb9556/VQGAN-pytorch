@@ -55,18 +55,36 @@ class TrainVQGAN:
                     disc_real = self.discriminator(imgs)
                     disc_fake = self.discriminator(decoded_images)
 
-                    disc_factor = self.vqgan.adopt_weight(args.disc_factor, epoch*steps_per_epoch+i, threshold=args.disc_start)
+                    # 计算判别器损失的因素
+                    # 该因素用于控制判别器损失对总损失的贡献
+                    # 在训练开始时，可能希望判别器损失的影响较小，以便其他损失项能够先发挥作用
+                    # 随着训练的进行，逐渐增加判别器损失的影响
+                    # 参数:
+                    # - args.disc_factor: 判别器损失的初始权重
+                    # - epoch*steps_per_epoch+i: 当前训练步数
+                    # - args.disc_start: 判别器损失开始完全生效的步数阈值
+                    disc_factor = self.vqgan.adopt_weight(args.disc_factor, epoch * steps_per_epoch + i,
+                                                          threshold=args.disc_start)
 
+                    # 逐层感知损失
                     perceptual_loss = self.perceptual_loss(imgs, decoded_images)
+                    #重构损失
                     rec_loss = torch.abs(imgs - decoded_images)
+                    #感知重构损失
                     perceptual_rec_loss = args.perceptual_loss_factor * perceptual_loss + args.rec_loss_factor * rec_loss
                     perceptual_rec_loss = perceptual_rec_loss.mean()
+
+                    # 通过取负均值，生成器的目标是最大化判别器
+                    # 对生成数据的置信度，即让判别器认为生成的数据是真实的。disc_fake越大表面判别器越能分辨假图片
                     g_loss = -torch.mean(disc_fake)
 
                     λ = self.vqgan.calculate_lambda(perceptual_rec_loss, g_loss)
                     vq_loss = perceptual_rec_loss + q_loss + disc_factor * λ * g_loss
 
+                    # disc_real =  [0.8, 0.6, 0.9, 0.7]; d_loss_real = 0.25
+                    #希望 disc_real接近1 ，hingloss
                     d_loss_real = torch.mean(F.relu(1. - disc_real))
+                    # 希望 disc_fake接近-1 ，hingloss
                     d_loss_fake = torch.mean(F.relu(1. + disc_fake))
                     gan_loss = disc_factor * 0.5*(d_loss_real + d_loss_fake)
 

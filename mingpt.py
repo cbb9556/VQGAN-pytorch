@@ -71,6 +71,7 @@ class CausalSelfAttention(nn.Module):
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         if layer_past is None:
+            # 上三角设置为 -inf， 便于计算因果注意力
             att = att.masked_fill(self.mask[:, :, :T, :T] == 0, float('-inf'))
 
         att = F.softmax(att, dim=-1)
@@ -124,7 +125,7 @@ class GPT(nn.Module):
                            n_unmasked=n_unmasked)
         # input embedding stem
         self.tok_emb = nn.Embedding(config.vocab_size, config.n_embd)
-        self.pos_emb = nn.Parameter(torch.zeros(1, config.block_size, config.n_embd))  # 512 x 1024
+        self.pos_emb = nn.Parameter(torch.zeros(1, config.block_size, config.n_embd))  # 1 * 512 x 1024
         self.drop = nn.Dropout(config.embd_pdrop)
         # transformer
         self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
@@ -156,10 +157,11 @@ class GPT(nn.Module):
 
         t = token_embeddings.shape[1]
         assert t <= self.block_size, "Cannot forward, model block size is exhausted."
-        position_embeddings = self.pos_emb[:, :t, :]  # each position maps to a (learnable) vector
+        position_embeddings = self.pos_emb[:, :t, :]  # each position maps to a (learnable) vector 1 * 512 x 1024
         x = self.drop(token_embeddings + position_embeddings)
         x = self.blocks(x)
         x = self.ln_f(x)
+        # batch、seq、vocb_size 词汇表每个词的概率
         logits = self.head(x)
 
         return logits, None
